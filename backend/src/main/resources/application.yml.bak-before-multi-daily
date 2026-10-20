@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/prompt_forge?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456789
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+llm:
+  base-url: https://api.deepseek.com
+  # ⚠️⚠️⚠️ 必须填写：把下面引号内替换为你自己的大模型 API Key，或使用环境变量 LLM_API_KEY 传入 ⚠️⚠️⚠️
+  api-key: ${LLM_API_KEY:}
+  model: deepseek-chat
+  timeout-seconds: 120
