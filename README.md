@@ -1,100 +1,88 @@
-# Prompt Forge
+# Prompt Forge（桌面版）
 
-把随手写的草稿一键改写为结构完整的提示词，并支持扫描本地多个 Git 仓库生成固定格式的工作日报。
+可安装的跨平台桌面应用（Windows / macOS）：提示词增强、多 Git 仓库工作日报、多模型提供商配置。  
+**技术栈**：Electron + Vue 3 + Vite，业务逻辑在 Electron 主进程（TypeScript），数据存本地 **SQLite**（`better-sqlite3`）。
 
-技术栈：Vue 3 + Vite 前端，Spring Boot 3 + MySQL 后端。
+> 原 Spring Boot + MySQL 后端已移至 [`legacy/backend/`](legacy/backend/)，仅作参考，**桌面版为当前产品**。
 
 ## 功能
 
-### 提示词增强（原有）
+- **提示词增强**：原版 / 扩充 / 精简 / 工程简报，自定义风格、历史记录、取消进行中的请求、恢复原文
+- **多项目日报**：系统文件夹选择器、按深度发现 Git 仓库、固定模板生成、LLM 润色、复制/导出、**日报记录列表**（可查看/复制/删除）
+- **设置（模型）**：OpenAI 兼容 `chat/completions`；预设 **xAI Grok**、DeepSeek、GLM Coding Plan、Kimi Coding Plan
 
-- 一键增强草稿，支持原版 / 扩充 / 精简 / 工程简报等内置风格
-- 自定义风格、增强历史、可取消请求
+### 模型与默认提供商
 
-### 多项目日报（新增）
-
-- 配置本地**父目录**（绝对路径），按深度发现子目录中的 Git 仓库
-- 选择日期（默认今天，按 `Asia/Shanghai` 或设置中的时区统计 00:00–24:00）
-- 聚合各仓库当日提交与未提交改动，生成固定模板日报
-- 可选用提示词增强管线对日报进行润色（不编造明日计划与风险）
-- 复制或导出 `.txt`
-
-### 设置（模型）
-
-- 管理多个 OpenAI 兼容提供商（名称、Base URL、模型、API Key）
-- 内置预设：DeepSeek、GLM Coding Plan（智谱）、Kimi Coding Plan（Moonshot）
-- 选择「当前使用」的提供商驱动提示词增强与日报润色
-- 密钥存本地数据库，界面仅显示掩码；可用环境变量 `LLM_API_KEY` 作为后备
-
-## 启动前准备
-
-1. **MySQL**：创建数据库
-
-```sql
-CREATE DATABASE IF NOT EXISTS prompt_forge DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-在 `backend/src/main/resources/application.yml` 中配置 `spring.datasource` 账号密码。
-
-2. **模型 Key**（任选其一）
-
-- 打开前端 **设置(模型)**，编辑预设并填入 API Key，点击「设为当前」
-- 或设置环境变量：`export LLM_API_KEY=你的密钥`
-- 或在 `application.yml` 的 `llm.api-key` 填写（不推荐提交到 Git）
-
-### 多项目日报：父目录配置
-
-1. 启动前后端后，进入 **多项目日报**
-2. 在「父目录」填入本机绝对路径，例如 `/Users/xgs/work`（macOS/Linux）或 `C:\work`（Windows）
-3. 可点击 **浏览** 在服务器本机目录树中选择（后端运行在哪台机器，就浏览那台机器的磁盘）
-4. 点击 **保存**，再 **发现仓库**，勾选仓库后 **一键生成**
-
-> 后端仅执行只读 `git` 命令，不会修改你的仓库。扫描路径必须在已保存的父目录之下，防止路径穿越。
-
-### 提供商预设参考
-
-| 名称 | Base URL | 模型示例 |
+| 预设 | Base URL | 默认模型（可编辑） |
 | --- | --- | --- |
+| **xAI Grok（全新安装默认「当前使用」）** | `https://api.x.ai/v1` | `grok-4.7`（见 [xAI 模型文档](https://docs.x.ai/docs/models)） |
 | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
-| GLM Coding Plan | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` 或 Coding Plan 文档中的模型名 |
-| Kimi Coding Plan | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` 或套餐对应模型 |
+| GLM Coding Plan | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| Kimi Coding Plan | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
 
-请以各厂商最新文档为准更新模型名。
+1. 打开 **设置(模型)**，在 **xAI Grok** 上点击 **编辑**，填入 xAI API Key（[console.x.ai](https://console.x.ai/)）。
+2. 若要改用其他厂商：在对应卡片点击 **设为当前**；**模型** 字段为自由文本，改完后 **保存** 即可。
+3. 可选：环境变量 `LLM_API_KEY` 作为当前激活提供商无 Key 时的后备。
 
-## 启动
+API Key 使用 Electron `safeStorage` 加密（系统支持时）；界面仅显示掩码。
 
-后端：
+### 日报记录保留
+
+- 默认保留最近 **10** 天日报记录；应用启动与每次保存后自动清理更早记录。
+- 在 **设置(模型) → 工作区与数据** 中可修改 **日报记录保留天数**（1–3650）。
+- **增强历史** 仍按条数分页保留，未套用日报保留策略。
+
+## 数据存放位置
+
+SQLite 数据库：`app.getPath('userData')/prompt-forge.sqlite`
+
+- Windows：`%APPDATA%\Prompt Forge\`
+- macOS：`~/Library/Application Support/Prompt Forge/`
+- Linux：`~/.config/Prompt Forge/`
+
+## 开发
 
 ```bash
-cd backend
-mvn package -DskipTests
-java -jar target/prompt-forge-1.0.0.jar
-```
-
-前端：
-
-```bash
-cd frontend
 npm install
 npm run dev
 ```
 
-浏览器访问 http://localhost:4321（开发模式通过 Vite 代理访问 `http://localhost:8080` 的 API）。
+需本机已安装 **Git**（日报功能只读调用 `git` 子进程）。
 
-## 主要 API
+```bash
+npm test          # 单元测试
+npm run build     # 编译主进程、预加载与渲染进程
+```
 
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| POST | `/api/enhance` | 增强草稿 |
-| GET/POST/DELETE | `/api/styles` | 风格管理 |
-| GET/PUT | `/api/settings/workspace` | 父目录、扫描深度、时区、作者覆盖 |
-| POST | `/api/repos/scan` | 发现 Git 仓库 |
-| POST | `/api/daily-report/generate` | 生成日报 |
-| POST | `/api/daily-report/polish` | 润色日报 |
-| GET | `/api/fs/list` | 浏览本机目录（配置父目录） |
-| GET/POST/PUT/DELETE | `/api/llm/providers` | 模型提供商 CRUD |
-| POST | `/api/llm/providers/{id}/activate` | 设为当前提供商 |
+## 打包安装程序
 
-## 日报模板说明
+在对应系统上：
 
-生成结果包含：**今日完成**（按仓库分组）、**进行中**（未提交 diff 统计）、**代码统计**、**问题与风险**（从 revert/fix/hotfix 等推断）、**明日计划**（固定为「待补充」）。无提交时会明确说明。
+```bash
+npm run dist        # 当前平台
+npm run dist:win    # Windows NSIS .exe
+npm run dist:mac    # macOS .dmg（universal）
+npm run dist:linux  # Linux AppImage（便于 CI 验证）
+```
+
+CI：见 [`.github/workflows/desktop-build.yml`](.github/workflows/desktop-build.yml)，在 Windows / macOS 上构建并上传产物。
+
+### macOS 未签名应用
+
+首次打开若提示无法验证开发者： **系统设置 → 隐私与安全性** → 仍要打开；或对 `.app` 右键 **打开**。
+
+## SQLite 库选型说明
+
+使用 **better-sqlite3**：同步 API、性能好、与 Electron 打包成熟（`electron-builder install-app-deps` + `asarUnpack` 解压原生模块）。WASM 方案（如 sql.js）免原生编译但大文件与写入性能较弱，不适合频繁写入日报/历史场景。
+
+## 测试用样例仓库
+
+```bash
+bash tests/fixtures/setup-sample-repo.sh
+```
+
+在 **多项目日报** 中将父目录设为 `tests/fixtures` 并发现 `sample-repo` 即可验证生成逻辑（需 Git）。
+
+## 许可证
+
+与原项目一致；请勿将真实 API Key 提交到 Git。

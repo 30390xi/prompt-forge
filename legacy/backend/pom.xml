@@ -8,7 +8,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.5</version>
-        <relativePath>/</relativePath>
+        <relativePath/>
     </parent>
 
     <groupId>com.xgs</groupId>

@@ -7,6 +7,9 @@ target/
 # Node
 node_modules/
 dist/
+out/
+release/
+*.sqlite
 
 # IDE
 .idea/
