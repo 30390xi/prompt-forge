@@ -155,7 +155,7 @@ async function runEnhance() {
       draft.value = data.prompt
       hasBackup.value = true
       loadHistoryPage(0)
-    } else {
+    } else if (data.error !== '请求已取消') {
       error.value = data.error || '增强失败，请重试'
     }
   } catch (e) {

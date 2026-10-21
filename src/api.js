@@ -1,3 +1,5 @@
+import { bindAbortSignal } from '../shared/bindAbortSignal'
+
 const api = window.promptForge
 
 if (!api) {
@@ -10,6 +12,7 @@ async function noop() {
 
 const safe = api ?? {
   enhance: noop,
+  cancelEnhance: () => {},
   fetchStyles: noop,
   addStyle: noop,
   deleteStyle: noop,
@@ -32,7 +35,9 @@ const safe = api ?? {
 }
 
 export async function enhance(draft, style, signal) {
-  return safe.enhance(draft, style, signal)
+  const requestId = crypto.randomUUID()
+  bindAbortSignal(signal, () => safe.cancelEnhance(requestId))
+  return safe.enhance(draft, style, requestId)
 }
 
 export function fetchStyles() {

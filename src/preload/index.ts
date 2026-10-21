@@ -1,18 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-function enhance(draft: string, style: string, signal?: AbortSignal) {
-  const requestId = crypto.randomUUID()
-  const promise = ipcRenderer.invoke('enhance', { draft, style, requestId })
-  if (signal) {
-    const onAbort = () => ipcRenderer.send('enhance:abort', requestId)
-    if (signal.aborted) onAbort()
-    else signal.addEventListener('abort', onAbort, { once: true })
-  }
-  return promise
+/** Only plain data crosses contextBridge — use requestId + cancelEnhance for abort. */
+function enhance(draft: string, style: string, requestId: string) {
+  return ipcRenderer.invoke('enhance', { draft, style, requestId })
+}
+
+function cancelEnhance(requestId: string) {
+  ipcRenderer.send('enhance:abort', requestId)
 }
 
 const api = {
   enhance,
+  cancelEnhance,
   fetchStyles: () => ipcRenderer.invoke('styles:list'),
   addStyle: (id: string, name: string, guide: string) =>
     ipcRenderer.invoke('styles:add', { id, name, guide }),
