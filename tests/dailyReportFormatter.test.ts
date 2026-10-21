@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDailyReport, displayAuthor } from '@shared/dailyReportFormatter'
+import { formatDailyReport, displayAuthor, mapWorkType } from '@shared/dailyReportFormatter'
 import type { RepoDayData } from '@shared/gitTypes'
 
 function emptyRepo(name: string): RepoDayData {
@@ -16,24 +16,31 @@ function emptyRepo(name: string): RepoDayData {
   }
 }
 
+describe('mapWorkType', () => {
+  it('maps feat and fix conventions', () => {
+    expect(mapWorkType('添加登录', '新功能')).toBe('开发')
+    expect(mapWorkType('fix: null pointer', '修复')).toBe('bug修复')
+    expect(mapWorkType('refactor auth', '重构')).toBe('体验优化')
+  })
+})
+
 describe('formatDailyReport', () => {
-  it('uses fixed template sections and 待补充 for tomorrow', () => {
+  it('uses team header and per-repo grouping with parenthesis numbering', () => {
     const report = formatDailyReport('2026-10-20', '张三', [emptyRepo('demo')])
     expect(report).toContain('【日报】2026-10-20（星期二）')
     expect(report).toContain('作者：张三')
-    expect(report).toContain('一、今日完成')
-    expect(report).toContain('今日所选仓库无提交记录。')
-    expect(report).toContain('五、明日计划')
-    expect(report).toContain('（待补充）')
+    expect(report).toContain('【demo】')
+    expect(report).toContain('本仓库该日无提交记录')
+    expect(report).not.toContain('一、今日完成')
   })
 
-  it('groups commits by repo when multiple repos', () => {
-    const repo = emptyRepo('api')
+  it('formats commit lines with type and 开发完成 tag', () => {
+    const repo = emptyRepo('prompt-forge')
     repo.commits = [
       {
         hash: 'abcd1234efgh',
         shortHash: 'abcd123',
-        subject: '添加登录',
+        subject: '多项目日报按仓库聚合提交',
         typeLabel: '新功能',
         filesChanged: 2,
         insertions: 10,
@@ -41,13 +48,35 @@ describe('formatDailyReport', () => {
       }
     ]
     repo.totalCommits = 1
-    repo.totalFiles = 2
-    repo.totalInsertions = 10
-    repo.totalDeletions = 1
+    const report = formatDailyReport('2026-10-20', '张三', [repo])
+    expect(report).toContain('【prompt-forge】')
+    expect(report).toMatch(/1\) 【开发】 多项目日报按仓库聚合提交 【开发完成】/)
+  })
+
+  it('shows repo header even with a single repo and maps fix to bug修复', () => {
+    const repo = emptyRepo('api')
+    repo.commits = [
+      {
+        hash: 'abcd1234567890',
+        shortHash: 'abcd123',
+        subject: 'fix: temperature 校验',
+        typeLabel: '修复',
+        filesChanged: 1,
+        insertions: 1,
+        deletions: 0
+      }
+    ]
     const report = formatDailyReport('2026-10-20', 'Alice', [repo, emptyRepo('web')])
     expect(report).toContain('【api】')
-    expect(report).toContain('[新功能]')
-    expect(report).toContain('abcd123')
+    expect(report).toContain('【web】')
+    expect(report).toMatch(/1\) 【bug修复】/)
+  })
+
+  it('adds WIP line with 未完成 under the repo', () => {
+    const repo = emptyRepo('svc')
+    repo.inProgress = { summary: '调整配置', fileCount: 2, insertions: 5, deletions: 1 }
+    const report = formatDailyReport('2026-10-20', 'Bob', [repo])
+    expect(report).toMatch(/1\) 【开发】 调整配置 【未完成】/)
   })
 })
 

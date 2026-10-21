@@ -117,23 +117,23 @@ export function buildUserMessage(draft: string, guide: string | null): string {
 
 export const DAILY_REPORT_SYSTEM =
   'You are an assistant that polishes Chinese daily work reports (日报) for software engineers. ' +
-  'Preserve facts from the draft; do not invent tasks, time spent, risks, or tomorrow plans.'
+  'Preserve project grouping, line numbering, work types, and status tags from the draft; do not invent deployment or test status.'
 
-export const DAILY_REPORT_POLISH = `Rewrite the following daily work report draft into clearer, professional Chinese while keeping the exact section structure and titles:
+export const DAILY_REPORT_POLISH = `Rewrite the following daily work report draft into clearer, professional Chinese while keeping the exact structure:
 
 【日报】日期（星期）  作者：姓名
-一、今日完成
-二、进行中
-三、代码统计
-四、问题与风险
-五、明日计划
 
-RULES:
-1. Keep all factual commit hashes, counts, and file stats from the draft.
-2. One short sentence per numbered item (~40 Chinese characters); human wording, not raw commit spam.
-3. Do not invent time spent, new risks, or tomorrow plans; section 五 must remain 「（待补充）」 if the draft says so.
-4. If there were no commits, state that clearly.
-5. Return only the polished report text, no markdown fences or commentary.
+【项目名】
+1) 【类型】 任务内容 【状态标签】…
+2) 【类型】 …
+
+STRUCTURE RULES:
+1. Keep the header line and every 【项目名】 section; keep 1) 2) numbering per project (restart at 1 for each project).
+2. Each item MUST stay in the form: N) 【类型】 任务内容 【标签】… where 类型 is one of: 设计 | 需求 | 项目维护 | 开发 | bug修复 | 体验优化 | 测试
+3. Status tags (only if already present in the draft — never add new ones): 设计完成 | 开发完成 | 已部署 | 已自测 | 未部署 | 未完成 | optional 【80%】 style ratio only if the draft already has it.
+4. Polish only the 任务内容 wording (~40 Chinese characters); do NOT change 【类型】 or status tags unless the draft clearly mislabeled a fact.
+5. Do not invent 已部署, 已自测, progress ratios, or extra projects/items; do not remove projects or items.
+6. Return only the polished report text, no markdown fences or commentary.
 
 DRAFT:
 {input}

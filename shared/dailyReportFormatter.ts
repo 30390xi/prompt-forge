@@ -1,4 +1,4 @@
-import type { RepoDayData } from './gitTypes'
+import type { CommitItem, RepoDayData } from './gitTypes'
 import { inclusiveDayCount } from './generateDateRange'
 
 const WEEKDAY_ZH = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
@@ -18,19 +18,73 @@ function formatHeaderLine(startIso: string, endIso: string, authorDisplay: strin
   return `【日报】${startIso} 至 ${endIso}（共 ${days} 天）  作者：${authorDisplay}`
 }
 
-function inferRisks(repos: RepoDayData[]): string[] {
-  const risks: string[] = []
-  for (const repo of repos) {
-    for (const c of repo.commits) {
-      const lower = c.subject.toLowerCase()
-      if (lower.includes('revert') || lower.includes('hotfix') || lower.startsWith('fix')) {
-        let line = `[${repo.repoName}] ${c.subject}`
-        if (line.length > 48) line = line.substring(0, 45) + '…'
-        risks.push(line)
-      }
-    }
+/** 团队日报「类型」枚举 */
+export type WorkType =
+  | '设计'
+  | '需求'
+  | '项目维护'
+  | '开发'
+  | 'bug修复'
+  | '体验优化'
+  | '测试'
+
+/** 根据提交主题与归类标签映射工作类型 */
+export function mapWorkType(subject: string, typeLabel: string): WorkType {
+  const lower = subject.toLowerCase()
+  const tl = typeLabel.trim()
+
+  if (tl === '修复' || lower.startsWith('fix') || lower.includes('bug') || lower.includes('hotfix')) {
+    return 'bug修复'
   }
-  return risks
+  if (tl === '测试' || lower.startsWith('test')) {
+    return '测试'
+  }
+  if (tl === '文档' || lower.startsWith('docs')) {
+    return '项目维护'
+  }
+  if (lower.includes('design') || lower.includes('设计') || /\bui\b/.test(lower)) {
+    return '设计'
+  }
+  if (lower.includes('需求') || lower.startsWith('req')) {
+    return '需求'
+  }
+  if (
+    lower.startsWith('chore') ||
+    lower.includes('maintain') ||
+    lower.includes('维护') ||
+    tl === '杂项'
+  ) {
+    return '项目维护'
+  }
+  if (
+    lower.startsWith('refactor') ||
+    tl === '重构' ||
+    lower.includes('ux') ||
+    lower.includes('体验') ||
+    lower.startsWith('style')
+  ) {
+    return '体验优化'
+  }
+  if (tl === '新功能' || lower.startsWith('feat')) {
+    return '开发'
+  }
+  return '开发'
+}
+
+function formatWorkLine(index: number, workType: WorkType, task: string, statusTags: string[]): string {
+  const tags = statusTags.map((t) => `【${t}】`).join('')
+  const body = task.trim() || '代码更新'
+  return `${index}) 【${workType}】 ${body}${tags ? ` ${tags}` : ''}`
+}
+
+function commitStatusTags(_commit: CommitItem): string[] {
+  return ['开发完成']
+}
+
+function wipTaskContent(repo: RepoDayData): string {
+  const summary = repo.inProgress.summary.trim()
+  if (summary) return summary
+  return `未提交改动（${repo.inProgress.fileCount} 个文件，+${repo.inProgress.insertions}/-${repo.inProgress.deletions}）`
 }
 
 export function displayAuthor(repos: RepoDayData[], override: string | null | undefined): string {
@@ -52,66 +106,51 @@ export function formatDailyReport(
   const endIso = endDateIso ?? startDateIso
   const sb: string[] = []
   sb.push(`${formatHeaderLine(startDateIso, endIso, authorDisplay)}\n`)
-  sb.push('一、今日完成')
 
-  let anyCommit = false
-  let itemIndex = 1
+  let anyContent = false
+
   for (const repo of repos) {
-    if (repo.commits.length === 0) continue
-    anyCommit = true
-    if (repos.length > 1) {
-      sb.push(`【${repo.repoName}】`)
-    }
+    sb.push(`\n【${repo.repoName}】`)
+    let itemIndex = 1
+    let repoHasLine = false
+
     for (const c of repo.commits) {
-      sb.push(`${itemIndex++}. [${c.typeLabel}] ${c.subject}  ——  ${c.shortHash}`)
+      const workType = mapWorkType(c.subject, c.typeLabel)
+      sb.push(formatWorkLine(itemIndex++, workType, c.subject, commitStatusTags(c)))
+      repoHasLine = true
+      anyContent = true
+    }
+
+    if (repo.inProgress.fileCount > 0) {
+      sb.push(
+        formatWorkLine(itemIndex++, '开发', wipTaskContent(repo), ['未完成'])
+      )
+      repoHasLine = true
+      anyContent = true
+    }
+
+    if (!repoHasLine) {
+      sb.push(
+        startDateIso === endIso
+          ? '（本仓库该日无提交记录）'
+          : '（本仓库该时段无提交记录）'
+      )
     }
   }
-  if (!anyCommit) {
+
+  if (repos.length === 0) {
     sb.push(
-      startDateIso === endIso ? '今日所选仓库无提交记录。' : '所选日期范围内无提交记录。'
+      startDateIso === endIso
+        ? '\n今日所选仓库无提交记录。'
+        : '\n所选日期范围内无提交记录。'
+    )
+  } else if (!anyContent) {
+    sb.push(
+      startDateIso === endIso
+        ? '\n今日所选仓库无提交记录。'
+        : '\n所选日期范围内无提交记录。'
     )
   }
-
-  sb.push('\n二、进行中')
-  let anyWip = false
-  let wipIndex = 1
-  for (const repo of repos) {
-    if (repo.inProgress.fileCount <= 0) continue
-    anyWip = true
-    const prefix = repos.length > 1 ? `（${repo.repoName}）` : ''
-    const summary =
-      repo.inProgress.summary.trim() === '' ? '未提交改动' : repo.inProgress.summary
-    sb.push(
-      `${wipIndex++}. ${prefix}${summary}（未提交改动：${repo.inProgress.fileCount} 个文件，+${repo.inProgress.insertions}/-${repo.inProgress.deletions}）`
-    )
-  }
-  if (!anyWip) {
-    sb.push('无')
-  }
-
-  let commits = 0
-  let files = 0
-  let ins = 0
-  let del = 0
-  for (const repo of repos) {
-    commits += repo.totalCommits
-    files += repo.totalFiles
-    ins += repo.totalInsertions
-    del += repo.totalDeletions
-  }
-  sb.push('\n三、代码统计')
-  sb.push(`提交 ${commits} 次｜修改文件 ${files} 个｜新增 +${ins} 行｜删除 -${del} 行`)
-
-  sb.push('\n四、问题与风险')
-  const risks = inferRisks(repos)
-  if (risks.length === 0) {
-    sb.push('无')
-  } else {
-    risks.forEach((r, i) => sb.push(`${i + 1}. ${r}`))
-  }
-
-  sb.push('\n五、明日计划')
-  sb.push('（待补充）')
 
   return sb.join('\n').trim() + '\n'
 }
