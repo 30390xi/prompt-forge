@@ -1,7 +1,7 @@
 import { dialog, ipcMain } from 'electron'
 import type Database from 'better-sqlite3'
 import { DEFAULT_STYLE } from '@shared/promptEngine'
-import { cleanupDailyReportRetention, ensureGrokPreset } from '../db/database'
+import { cleanupDailyReportRetention } from '../db/database'
 import { discover } from '../git/repoDiscovery'
 import { GitNotFoundError } from '../git/gitRunner'
 import {
@@ -24,7 +24,6 @@ import { getWorkspaceSettings, updateWorkspace } from '../services/workspaceServ
 const pendingEnhance = new Map<string, AbortController>()
 
 export function registerIpcHandlers(database: Database.Database): void {
-  ensureGrokPreset(database)
   cleanupDailyReportRetention(database)
 
   ipcMain.handle('styles:list', () => ({

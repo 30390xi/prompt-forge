@@ -16,11 +16,11 @@
 | 预设 | Base URL | 默认模型（可编辑） |
 | --- | --- | --- |
 | **xAI Grok（全新安装默认「当前使用」）** | `https://api.x.ai/v1` | `grok-4.7`（见 [xAI 模型文档](https://docs.x.ai/docs/models)） |
-| DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
-| GLM Coding Plan | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
-| Kimi Coding Plan | `https://api.moonshot.cn/v1` | `moonshot-v1-8k` |
+| DeepSeek | `https://api.deepseek.com` | `deepseek-flash`（亦可 `deepseek-v4-pro`） |
+| GLM Coding Plan | `https://open.bigmodel.cn/api/coding/paas/v4` | `glm-5.3` |
+| Kimi Coding Plan | `https://api.kimi.com/coding/v1` | `kimi-for-coding` |
 
-1. 打开 **设置(模型)**，在 **xAI Grok** 上点击 **编辑**，填入 xAI API Key（[console.x.ai](https://console.x.ai/)）。
+1. 打开 **设置(模型)**，在 **xAI Grok** 卡片上点击 **编辑**（卡片内联表单），填入 xAI API Key（[console.x.ai](https://console.x.ai/)）。
 2. 若要改用其他厂商：在对应卡片点击 **设为当前**；**模型** 字段为自由文本，改完后 **保存** 即可。
 3. 可选：环境变量 `LLM_API_KEY` 作为当前激活提供商无 Key 时的后备。
 

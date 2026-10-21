@@ -2,23 +2,147 @@
   <div class="settings-root">
     <section class="card">
       <h2 class="card-title">模型提供商</h2>
-      <p class="panel-desc">支持 OpenAI 兼容的 chat/completions。密钥经系统加密存储（Electron safeStorage），界面仅显示掩码。全新安装默认使用 <strong>xAI Grok</strong>，可在下方切换任意提供商为「当前使用」。</p>
+      <p class="panel-desc">
+        支持 OpenAI 兼容的 chat/completions。密钥经系统加密存储（Electron safeStorage），界面仅显示掩码。全新安装默认使用
+        <strong>xAI Grok</strong>，可在下方切换任意提供商为「当前使用」。
+      </p>
 
       <div class="provider-list">
-        <div v-for="p in providers" :key="p.id" class="provider-item" :class="{ active: p.active }">
-          <div class="provider-main">
-            <strong>{{ p.name }}</strong>
-            <span v-if="p.presetKey" class="preset-tag">{{ p.presetKey }}</span>
-            <span v-if="p.active" class="active-tag">当前使用</span>
-            <p class="provider-meta">{{ p.baseUrl }} · {{ p.model }}</p>
-            <p class="provider-meta">API Key：{{ p.hasApiKey ? p.apiKeyMasked : '未配置' }}</p>
-          </div>
-          <div class="provider-actions">
-            <button v-if="!p.active" type="button" class="btn btn-ghost" @click="activate(p.id)">设为当前</button>
-            <button type="button" class="btn btn-ghost" @click="edit(p)">编辑</button>
-            <button v-if="!p.presetKey" type="button" class="btn btn-danger-sm" @click="remove(p.id)">删除</button>
-          </div>
+        <div
+          v-for="p in providers"
+          :key="p.id"
+          class="provider-item"
+          :class="{ active: p.active, editing: editingId === p.id }"
+        >
+          <template v-if="editingId === p.id">
+            <div class="provider-edit">
+              <p class="edit-title">编辑：{{ p.presetKey ? p.name : '自定义提供商' }}</p>
+              <div class="form-grid compact">
+                <label class="field">
+                  <span>名称</span>
+                  <input v-model.trim="editForm.name" class="input" />
+                </label>
+                <label class="field">
+                  <span>Base URL</span>
+                  <input v-model.trim="editForm.baseUrl" class="input" />
+                </label>
+                <label class="field">
+                  <span>模型</span>
+                  <input v-model.trim="editForm.model" class="input" />
+                </label>
+                <label class="field">
+                  <span>API Key（留空则保留原值）</span>
+                  <input
+                    v-model="editForm.apiKey"
+                    class="input"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="sk-..."
+                  />
+                </label>
+              </div>
+              <p v-if="cardError" class="error-text">{{ cardError }}</p>
+              <div class="form-actions">
+                <button type="button" class="btn btn-primary" :disabled="savingId === p.id" @click="saveEdit(p.id)">
+                  {{ savingId === p.id ? '保存中…' : '保存' }}
+                </button>
+                <button type="button" class="btn btn-ghost" :disabled="savingId === p.id" @click="cancelEdit">
+                  取消
+                </button>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div class="provider-main">
+              <strong>{{ p.name }}</strong>
+              <span v-if="p.presetKey" class="preset-tag">{{ p.presetKey }}</span>
+              <span v-if="p.active" class="active-tag">当前使用</span>
+              <p class="provider-meta">{{ p.baseUrl }} · {{ p.model }}</p>
+              <p class="provider-meta">API Key：{{ p.hasApiKey ? p.apiKeyMasked : '未配置' }}</p>
+            </div>
+            <div class="provider-actions">
+              <button
+                v-if="!p.active"
+                type="button"
+                class="btn btn-ghost"
+                :disabled="editingId != null || activatingId != null"
+                @click="activate(p.id)"
+              >
+                {{ activatingId === p.id ? '设置中…' : '设为当前' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-ghost"
+                :disabled="editingId != null"
+                @click="startEdit(p)"
+              >
+                编辑
+              </button>
+              <button
+                v-if="!p.presetKey"
+                type="button"
+                class="btn btn-danger-sm"
+                :disabled="editingId != null || deletingId === p.id"
+                @click="remove(p.id)"
+              >
+                {{ deletingId === p.id ? '删除中…' : '删除' }}
+              </button>
+            </div>
+          </template>
         </div>
+      </div>
+
+      <div class="hint-box">
+        <p><strong>预设说明</strong></p>
+        <ul>
+          <li>
+            <strong>xAI Grok（全新安装默认）</strong>：<code>https://api.x.ai/v1</code>，模型
+            <code>grok-4.7</code>
+          </li>
+          <li>
+            DeepSeek：<code>https://api.deepseek.com</code>，模型 <code>deepseek-flash</code>（亦可填
+            <code>deepseek-v4-pro</code>；旧版 <code>deepseek-chat</code> 已退役）
+          </li>
+          <li>
+            GLM Coding Plan：<code>https://open.bigmodel.cn/api/coding/paas/v4</code>，模型
+            <code>glm-5.3</code>（须用 coding 端点，勿用 <code>/api/paas/v4</code>）
+          </li>
+          <li>
+            Kimi Coding Plan：<code>https://api.kimi.com/coding/v1</code>，模型
+            <code>kimi-for-coding</code>（亦可填 <code>kimi-for-coding-highspeed</code> / <code>k3</code>；勿用
+            Moonshot 通用域名）
+          </li>
+        </ul>
+        <p>在卡片上点击「设为当前」切换默认模型；「编辑」在卡片内修改，不会弹出系统窗口。环境变量 <code>LLM_API_KEY</code> 可作后备。</p>
+      </div>
+    </section>
+
+    <section v-if="editingId == null" class="card">
+      <h2 class="card-title">新增自定义提供商</h2>
+      <div class="form-grid">
+        <label class="field">
+          <span>名称</span>
+          <input v-model.trim="addForm.name" class="input" />
+        </label>
+        <label class="field">
+          <span>Base URL</span>
+          <input v-model.trim="addForm.baseUrl" class="input" placeholder="https://api.example.com/v1" />
+        </label>
+        <label class="field">
+          <span>模型</span>
+          <input v-model.trim="addForm.model" class="input" />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <input v-model="addForm.apiKey" class="input" type="password" autocomplete="off" placeholder="sk-..." />
+        </label>
+      </div>
+      <p v-if="addError" class="error-text">{{ addError }}</p>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" :disabled="adding" @click="submitAdd">
+          {{ adding ? '保存中…' : '添加' }}
+        </button>
+        <button type="button" class="btn btn-ghost" :disabled="adding" @click="resetAdd">清空</button>
       </div>
     </section>
 
@@ -41,46 +165,6 @@
       </div>
       <p v-if="wsError" class="error-text">{{ wsError }}</p>
     </section>
-
-    <section class="card">
-      <h2 class="card-title">{{ form.id ? '编辑提供商' : '新增自定义提供商' }}</h2>
-      <div class="form-grid">
-        <label class="field">
-          <span>名称</span>
-          <input v-model.trim="form.name" class="input" />
-        </label>
-        <label class="field">
-          <span>Base URL</span>
-          <input v-model.trim="form.baseUrl" class="input" placeholder="https://api.example.com/v1" />
-        </label>
-        <label class="field">
-          <span>模型</span>
-          <input v-model.trim="form.model" class="input" />
-        </label>
-        <label class="field">
-          <span>API Key（留空则保留原值）</span>
-          <input v-model="form.apiKey" class="input" type="password" autocomplete="off" placeholder="sk-..." />
-        </label>
-      </div>
-      <p v-if="formError" class="error-text">{{ formError }}</p>
-      <div class="form-actions">
-        <button type="button" class="btn btn-primary" :disabled="submitting" @click="submit">
-          {{ submitting ? '保存中…' : '保存' }}
-        </button>
-        <button type="button" class="btn btn-ghost" @click="resetForm">清空</button>
-      </div>
-
-      <div class="hint-box">
-        <p><strong>预设说明</strong></p>
-        <ul>
-          <li><strong>xAI Grok（默认）</strong>：<code>https://api.x.ai/v1</code>，模型 <code>grok-4.7</code>（见 <a href="https://docs.x.ai/docs/models" target="_blank" rel="noreferrer">xAI 模型文档</a>，可在编辑时改为其他 Grok 模型 ID）</li>
-          <li>DeepSeek：<code>https://api.deepseek.com</code>，模型 <code>deepseek-chat</code></li>
-          <li>GLM Coding Plan（智谱）：<code>https://open.bigmodel.cn/api/paas/v4</code></li>
-          <li>Kimi Coding Plan（Moonshot）：<code>https://api.moonshot.cn/v1</code></li>
-        </ul>
-        <p>在提供商卡片上点击「设为当前」即可更换默认模型；模型名称可随时在「编辑」中修改。也可设置环境变量 <code>LLM_API_KEY</code> 作为后备。</p>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -97,15 +181,26 @@ import {
 } from '../api.js'
 
 const providers = ref([])
-const submitting = ref(false)
-const formError = ref('')
+const editingId = ref(null)
+const savingId = ref(null)
+const activatingId = ref(null)
+const deletingId = ref(null)
+const adding = ref(false)
+const cardError = ref('')
+const addError = ref('')
 const retentionDays = ref(10)
 const timezone = ref('Asia/Shanghai')
 const wsSaving = ref(false)
 const wsError = ref('')
 
-const form = reactive({
-  id: null,
+const editForm = reactive({
+  name: '',
+  baseUrl: '',
+  model: '',
+  apiKey: ''
+})
+
+const addForm = reactive({
   name: '',
   baseUrl: '',
   model: '',
@@ -117,55 +212,92 @@ async function load() {
   if (data.ok) providers.value = data.providers || []
 }
 
-function edit(p) {
-  form.id = p.id
-  form.name = p.name
-  form.baseUrl = p.baseUrl
-  form.model = p.model
-  form.apiKey = ''
+function startEdit(p) {
+  cardError.value = ''
+  editingId.value = p.id
+  editForm.name = p.name
+  editForm.baseUrl = p.baseUrl
+  editForm.model = p.model
+  editForm.apiKey = ''
 }
 
-function resetForm() {
-  form.id = null
-  form.name = ''
-  form.baseUrl = ''
-  form.model = ''
-  form.apiKey = ''
-  formError.value = ''
+function cancelEdit() {
+  editingId.value = null
+  cardError.value = ''
+  editForm.name = ''
+  editForm.baseUrl = ''
+  editForm.model = ''
+  editForm.apiKey = ''
 }
 
-async function submit() {
-  formError.value = ''
-  submitting.value = true
+async function saveEdit(id) {
+  cardError.value = ''
+  savingId.value = id
   try {
-    const payload = {
-      name: form.name,
-      baseUrl: form.baseUrl,
-      model: form.model,
-      apiKey: form.apiKey || undefined
-    }
-    const data = form.id
-      ? await updateProvider(form.id, payload)
-      : await createProvider(payload)
+    const data = await updateProvider(id, {
+      name: editForm.name,
+      baseUrl: editForm.baseUrl,
+      model: editForm.model,
+      apiKey: editForm.apiKey || undefined
+    })
     if (data.ok) {
-      resetForm()
+      cancelEdit()
       await load()
     } else {
-      formError.value = data.error || '保存失败'
+      cardError.value = data.error || '保存失败'
     }
   } finally {
-    submitting.value = false
+    savingId.value = null
+  }
+}
+
+function resetAdd() {
+  addForm.name = ''
+  addForm.baseUrl = ''
+  addForm.model = ''
+  addForm.apiKey = ''
+  addError.value = ''
+}
+
+async function submitAdd() {
+  addError.value = ''
+  adding.value = true
+  try {
+    const data = await createProvider({
+      name: addForm.name,
+      baseUrl: addForm.baseUrl,
+      model: addForm.model,
+      apiKey: addForm.apiKey || undefined
+    })
+    if (data.ok) {
+      resetAdd()
+      await load()
+    } else {
+      addError.value = data.error || '添加失败'
+    }
+  } finally {
+    adding.value = false
   }
 }
 
 async function remove(id) {
-  await deleteProvider(id)
-  await load()
+  deletingId.value = id
+  try {
+    await deleteProvider(id)
+    await load()
+  } finally {
+    deletingId.value = null
+  }
 }
 
 async function activate(id) {
-  await activateProvider(id)
-  await load()
+  activatingId.value = id
+  try {
+    await activateProvider(id)
+    await load()
+  } finally {
+    activatingId.value = null
+  }
 }
 
 async function loadWorkspace() {
@@ -224,6 +356,22 @@ onMounted(async () => {
   background: #fafbff;
 }
 
+.provider-item.editing {
+  flex-direction: column;
+  border-color: var(--primary);
+  background: #fafbff;
+}
+
+.provider-edit {
+  width: 100%;
+}
+
+.edit-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
 .provider-main {
   flex: 1;
   min-width: 0;
@@ -258,6 +406,10 @@ onMounted(async () => {
   margin-top: 12px;
 }
 
+.form-grid.compact {
+  margin-top: 0;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -289,7 +441,7 @@ onMounted(async () => {
   .form-grid {
     grid-template-columns: 1fr;
   }
-  .provider-item {
+  .provider-item:not(.editing) {
     flex-direction: column;
   }
 }

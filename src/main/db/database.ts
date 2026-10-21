@@ -1,13 +1,11 @@
 import Database from 'better-sqlite3'
 import path from 'path'
 import { app } from 'electron'
+import { LLM_PRESET_CATALOG, shouldMigratePresetModel } from '@shared/llmPresetCatalog'
 import { retentionCutoffIso } from '@shared/retention'
 
 const SINGLETON_SETTINGS_ID = 1
 const DEFAULT_RETENTION_DAYS = 10
-
-/** xAI 文档推荐聊天模型：Grok 4.7（https://docs.x.ai/docs/models） */
-export const XAI_GROK_CHAT_MODEL = 'grok-4.7'
 
 export interface WorkspaceRow {
   parent_folder: string | null
@@ -29,6 +27,7 @@ export function openDatabase(): Database.Database {
   db.pragma('journal_mode = WAL')
   migrate(db)
   seedPresets(db)
+  ensurePresetCatalog(db)
   return db
 }
 
@@ -100,28 +99,47 @@ function seedPresets(database: Database.Database): void {
     `INSERT INTO llm_providers (preset_key, name, base_url, model, api_key_enc, active) VALUES (?, ?, ?, ?, '', ?)`
   )
 
-  const presets: Array<[string, string, string, string, number]> = [
-    ['grok', 'xAI Grok', 'https://api.x.ai/v1', XAI_GROK_CHAT_MODEL, 1],
-    ['deepseek', 'DeepSeek', 'https://api.deepseek.com', 'deepseek-chat', 0],
-    ['glm', 'GLM Coding Plan', 'https://open.bigmodel.cn/api/paas/v4', 'glm-4-flash', 0],
-    ['kimi', 'Kimi Coding Plan', 'https://api.moonshot.cn/v1', 'moonshot-v1-8k', 0]
-  ]
-  for (const row of presets) {
-    insert.run(...row)
+  for (const preset of LLM_PRESET_CATALOG) {
+    const active = preset.presetKey === 'grok' ? 1 : 0
+    insert.run(preset.presetKey, preset.name, preset.baseUrl, preset.model, active)
   }
 }
 
-/** 为已安装用户补充 Grok 预设（不改动当前 active） */
-export function ensureGrokPreset(database: Database.Database): void {
-  const existing = database
-    .prepare('SELECT id FROM llm_providers WHERE preset_key = ?')
-    .get('grok') as { id: number } | undefined
-  if (existing) return
-  database
-    .prepare(
-      `INSERT INTO llm_providers (preset_key, name, base_url, model, api_key_enc, active) VALUES ('grok', 'xAI Grok', 'https://api.x.ai/v1', ?, '', 0)`
-    )
-    .run(XAI_GROK_CHAT_MODEL)
+/**
+ * 启动时同步预设目录：刷新 base_url / 显示名；在仍为旧默认或展示名时更新 model。
+ * 不修改 api_key_enc、active（升级不强制改回 Grok）。
+ */
+export function ensurePresetCatalog(database: Database.Database): void {
+  const insert = database.prepare(
+    `INSERT INTO llm_providers (preset_key, name, base_url, model, api_key_enc, active)
+     VALUES (?, ?, ?, ?, '', 0)`
+  )
+  const update = database.prepare(
+    `UPDATE llm_providers SET name = ?, base_url = ?, model = ? WHERE preset_key = ?`
+  )
+  const updateMeta = database.prepare(
+    `UPDATE llm_providers SET name = ?, base_url = ? WHERE preset_key = ?`
+  )
+
+  for (const preset of LLM_PRESET_CATALOG) {
+    const row = database
+      .prepare('SELECT preset_key, name, base_url, model FROM llm_providers WHERE preset_key = ?')
+      .get(preset.presetKey) as
+      | { preset_key: string; name: string; base_url: string; model: string }
+      | undefined
+
+    if (!row) {
+      insert.run(preset.presetKey, preset.name, preset.baseUrl, preset.model)
+      continue
+    }
+
+    const migrateModel = shouldMigratePresetModel(preset.presetKey, row.model, preset.model)
+    if (migrateModel) {
+      update.run(preset.name, preset.baseUrl, preset.model, preset.presetKey)
+    } else {
+      updateMeta.run(preset.name, preset.baseUrl, preset.presetKey)
+    }
+  }
 }
 
 export function getWorkspace(database: Database.Database): WorkspaceRow {
