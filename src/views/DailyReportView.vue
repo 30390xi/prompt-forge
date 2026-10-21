@@ -314,7 +314,7 @@ async function generate() {
   polishError.value = ''
   try {
     const reposArg =
-      selectedRepos.value.length > 0 ? selectedRepos.value : undefined
+      selectedRepos.value.length > 0 ? [...selectedRepos.value] : undefined
     const data = await generateDailyReport({
       startDate: rangeStart.value,
       endDate: rangeEnd.value,

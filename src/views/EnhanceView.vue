@@ -41,7 +41,7 @@
               <option v-for="s in customStyles" :key="s.id" :value="s.id">{{ s.name }}</option>
             </optgroup>
           </select>
-          <button v-if="hasBackup" class="btn btn-ghost" @click="revert">↺ 恢复原文</button>
+          <button v-if="hasResultToClear" class="btn btn-ghost" @click="clearResult">清除结果</button>
           <button
             v-if="!loading"
             class="btn btn-primary btn-enhance"
@@ -108,8 +108,7 @@ const { showStylePanel } = defineProps({
 })
 
 const draft = ref('')
-const backup = ref('')
-const hasBackup = ref(false)
+const hasResultToClear = ref(false)
 const result = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -138,7 +137,7 @@ function styleName(id) {
 }
 
 function onDraftInput() {
-  hasBackup.value = false
+  /* 草稿与增强结果独立，编辑草稿不清除结果 */
 }
 
 async function runEnhance() {
@@ -146,14 +145,12 @@ async function runEnhance() {
   loading.value = true
   error.value = ''
   result.value = ''
-  backup.value = draft.value
   abortController = new AbortController()
   try {
     const data = await enhance(draft.value, selectedStyle.value, abortController.signal)
     if (data.ok) {
       result.value = data.prompt
-      draft.value = data.prompt
-      hasBackup.value = true
+      hasResultToClear.value = true
       loadHistoryPage(0)
     } else if (data.error !== '请求已取消') {
       error.value = data.error || '增强失败，请重试'
@@ -172,10 +169,9 @@ function cancelEnhance() {
   if (abortController) abortController.abort()
 }
 
-function revert() {
-  draft.value = backup.value
+function clearResult() {
   result.value = ''
-  hasBackup.value = false
+  hasResultToClear.value = false
 }
 
 async function copyResult() {
@@ -192,7 +188,7 @@ function loadHistory(item) {
   draft.value = item.draft
   result.value = item.result
   selectedStyle.value = styles.value.some(s => s.id === item.style) ? item.style : 'default'
-  hasBackup.value = false
+  hasResultToClear.value = true
   error.value = ''
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }

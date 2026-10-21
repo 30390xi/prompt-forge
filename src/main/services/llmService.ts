@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3'
+import { resolveChatTemperature } from '@shared/llmTemperature'
 import { resolveActiveConfig } from './llmProviderService'
 
 export interface LlmResult {
@@ -52,7 +53,7 @@ export async function chat(
       },
       body: JSON.stringify({
         model: config.model,
-        temperature: 0.3,
+        temperature: resolveChatTemperature(config.baseUrl, config.model),
         max_tokens: 4096,
         messages: [
           { role: 'system', content: system },

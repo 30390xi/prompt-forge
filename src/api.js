@@ -1,4 +1,5 @@
 import { bindAbortSignal } from '../shared/bindAbortSignal'
+import { toIpcPlain } from '../shared/ipcPayload'
 
 const api = window.promptForge
 
@@ -65,15 +66,15 @@ export function fetchWorkspaceSettings() {
 }
 
 export function saveWorkspaceSettings(settings) {
-  return safe.saveWorkspaceSettings(settings)
+  return safe.saveWorkspaceSettings(toIpcPlain(settings))
 }
 
 export function scanRepos(body) {
-  return safe.scanRepos(body)
+  return safe.scanRepos(toIpcPlain(body))
 }
 
 export function generateDailyReport(body) {
-  return safe.generateDailyReport(body)
+  return safe.generateDailyReport(toIpcPlain(body))
 }
 
 export function polishDailyReport(draft, style) {
