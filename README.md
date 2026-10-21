@@ -24,7 +24,7 @@
 | GLM Coding Plan | `https://open.bigmodel.cn/api/coding/paas/v4` | `glm-5.3` |
 | Kimi Coding Plan | `https://api.kimi.com/coding/v1` | `kimi-for-coding` |
 
-1. 打开 **设置(模型)**，在 **xAI Grok** 卡片上点击 **编辑**（卡片内联表单），填入 xAI API Key（[console.x.ai](https://console.x.ai/)）。
+1. 打开 **模型设置**，在 **xAI Grok** 卡片上点击 **编辑**（卡片内联表单），填入 xAI API Key（[console.x.ai](https://console.x.ai/)）。
 2. 若要改用其他厂商：在对应卡片点击 **设为当前**；**模型** 字段为自由文本，改完后 **保存** 即可。
 3. 可选：环境变量 `LLM_API_KEY` 作为当前激活提供商无 Key 时的后备。
 
@@ -33,7 +33,7 @@ API Key 使用 Electron `safeStorage` 加密（系统支持时）；界面仅显
 ### 日报记录保留
 
 - 默认保留最近 **10** 天日报记录；应用启动与每次保存后自动清理更早记录。
-- 在 **设置(模型) → 工作区与数据** 中可修改 **日报记录保留天数**（1–3650）。
+- 在 **模型设置 → 工作区与数据** 中可修改 **日报记录保留天数**（1–3650）。
 - **增强历史** 仍按条数分页保留，未套用日报保留策略。
 
 ## 数据存放位置

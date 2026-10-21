@@ -214,15 +214,14 @@ select:focus {
 
 .result-text {
   flex: 1;
-  white-space: pre-wrap;
-  word-break: break-word;
+  min-height: 280px;
+  resize: vertical;
   font-size: 14px;
   line-height: 1.8;
   padding: 14px;
   background: #fbfcfe;
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow-y: auto;
   font-family: inherit;
 }
 

@@ -40,7 +40,7 @@ export async function chat(
   if (!config.apiKey) {
     return {
       ok: false,
-      error: '尚未配置模型 API Key，请在「设置(模型)」中添加或在环境变量 LLM_API_KEY 中设置'
+      error: '尚未配置模型 API Key，请在「模型设置」中添加或在环境变量 LLM_API_KEY 中设置'
     }
   }
 

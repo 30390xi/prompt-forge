@@ -5,7 +5,6 @@
         <div class="logo">
           <span class="logo-icon">✦</span>
           <h1>Prompt Forge</h1>
-          <span class="logo-sub">提示词增强 · 多项目日报</span>
         </div>
         <nav class="tabs">
           <button
@@ -45,7 +44,7 @@ import SettingsView from './views/SettingsView.vue'
 const tabs = [
   { id: 'enhance', label: '提示词增强' },
   { id: 'daily', label: '多项目日报' },
-  { id: 'settings', label: '设置(模型)' }
+  { id: 'settings', label: '模型设置' }
 ]
 
 const activeTab = ref('enhance')
@@ -91,11 +90,6 @@ const showStylePanel = ref(false)
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.5px;
-}
-
-.logo-sub {
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 .tabs {

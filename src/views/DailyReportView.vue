@@ -30,9 +30,8 @@
           <span>结束日期</span>
           <input v-model="rangeEnd" type="date" class="input" :disabled="actionBusy" @change="onRangeChange" />
         </label>
-        <p class="field field-span2 range-tip">
-          单次生成最多连续 <strong>{{ maxRangeDays }}</strong> 天（含起止日）。当前跨度：
-          <strong>{{ rangeSpanLabel }}</strong>
+        <p class="field-span2 range-tip">
+          单次生成最多连续 <span class="range-nowrap">{{ maxRangeDays }} 天</span>（含起止日）。当前跨度：<span class="range-nowrap">{{ rangeSpanLabel }}</span>
         </p>
         <label class="field">
           <span>作者覆盖（可选）</span>
@@ -498,6 +497,13 @@ onMounted(async () => {
   font-size: 13px;
   color: var(--text-secondary);
   margin: 0;
+  line-height: 1.6;
+}
+
+.range-nowrap {
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
 }
 
 .hint-line {

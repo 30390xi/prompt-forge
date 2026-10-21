@@ -45,7 +45,7 @@ import SettingsView from './views/SettingsView.vue'
 const tabs = [
   { id: 'enhance', label: '提示词增强' },
   { id: 'daily', label: '多项目日报' },
-  { id: 'settings', label: '设置(模型)' }
+  { id: 'settings', label: '模型设置' }
 ]
 
 const activeTab = ref('enhance')

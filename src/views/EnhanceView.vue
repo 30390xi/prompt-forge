@@ -62,10 +62,12 @@
           <div class="spinner"></div>
           <p>模型正在改写你的草稿</p>
         </div>
-        <pre v-else-if="result" class="result-text">{{ result }}</pre>
-        <div v-else class="result-placeholder muted">
-          <p>点击「增强提示词」，改写结果会显示在这里</p>
-        </div>
+        <textarea
+          v-else
+          v-model="result"
+          class="result-text"
+          placeholder="点击「增强提示词」，改写结果会显示在这里，可直接编辑后再复制"
+        ></textarea>
       </section>
     </div>
 
