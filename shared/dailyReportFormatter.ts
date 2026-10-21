@@ -1,6 +1,22 @@
 import type { RepoDayData } from './gitTypes'
+import { inclusiveDayCount } from './generateDateRange'
 
 const WEEKDAY_ZH = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+
+function weekdayZh(dateIso: string): string {
+  const [y, m, d] = dateIso.split('-').map(Number)
+  const utc = new Date(Date.UTC(y, m - 1, d))
+  const jsDay = utc.getUTCDay()
+  return WEEKDAY_ZH[jsDay === 0 ? 6 : jsDay - 1]
+}
+
+function formatHeaderLine(startIso: string, endIso: string, authorDisplay: string): string {
+  if (startIso === endIso) {
+    return `【日报】${startIso}（${weekdayZh(startIso)}）  作者：${authorDisplay}`
+  }
+  const days = inclusiveDayCount(startIso, endIso)
+  return `【日报】${startIso} 至 ${endIso}（共 ${days} 天）  作者：${authorDisplay}`
+}
 
 function inferRisks(repos: RepoDayData[]): string[] {
   const risks: string[] = []
@@ -23,19 +39,19 @@ export function displayAuthor(repos: RepoDayData[], override: string | null | un
   return found ?? '未知'
 }
 
-/** date: YYYY-MM-DD */
+/**
+ * @param startDateIso YYYY-MM-DD
+ * @param endDateIso 可选，默认同 start；跨多天时合并区间内提交
+ */
 export function formatDailyReport(
-  dateIso: string,
+  startDateIso: string,
   authorDisplay: string,
-  repos: RepoDayData[]
+  repos: RepoDayData[],
+  endDateIso?: string
 ): string {
-  const [y, m, d] = dateIso.split('-').map(Number)
-  const utc = new Date(Date.UTC(y, m - 1, d))
-  const jsDay = utc.getUTCDay()
-  const weekday = WEEKDAY_ZH[jsDay === 0 ? 6 : jsDay - 1]
-
+  const endIso = endDateIso ?? startDateIso
   const sb: string[] = []
-  sb.push(`【日报】${dateIso}（${weekday}）  作者：${authorDisplay}\n`)
+  sb.push(`${formatHeaderLine(startDateIso, endIso, authorDisplay)}\n`)
   sb.push('一、今日完成')
 
   let anyCommit = false
@@ -51,7 +67,9 @@ export function formatDailyReport(
     }
   }
   if (!anyCommit) {
-    sb.push('今日所选仓库无提交记录。')
+    sb.push(
+      startDateIso === endIso ? '今日所选仓库无提交记录。' : '所选日期范围内无提交记录。'
+    )
   }
 
   sb.push('\n二、进行中')

@@ -103,13 +103,26 @@ export function registerIpcHandlers(database: Database.Database): void {
 
   ipcMain.handle(
     'daily-report:generate',
-    async (_e, body: { date?: string; parentFolder?: string; author?: string; repos?: string[] }) => {
+    async (
+      _e,
+      body: {
+        date?: string
+        startDate?: string
+        endDate?: string
+        parentFolder?: string
+        author?: string
+        repos?: string[]
+      }
+    ) => {
       try {
+        const start = body.startDate ?? body.date ?? null
+        const end = body.endDate ?? body.date ?? null
         return await generateDailyReport(
           database,
-          body.date ?? null,
+          start,
+          end,
           body.parentFolder ?? null,
-          body.repos ?? null,
+          body.repos,
           body.author
         )
       } catch (e) {

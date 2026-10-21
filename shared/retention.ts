@@ -10,11 +10,16 @@ export function retentionCutoffIso(retentionDays: number, now = new Date()): str
   return `${y}-${m}-${d}`
 }
 
+export function reportRecordStartDate(reportDateKey: string): string {
+  const idx = reportDateKey.indexOf('~')
+  return idx >= 0 ? reportDateKey.slice(0, idx) : reportDateKey
+}
+
 export function shouldKeepReportRecord(
   reportDateIso: string,
   retentionDays: number,
   now = new Date()
 ): boolean {
   const cutoff = retentionCutoffIso(retentionDays, now)
-  return reportDateIso >= cutoff
+  return reportRecordStartDate(reportDateIso) >= cutoff
 }

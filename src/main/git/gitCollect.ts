@@ -52,6 +52,13 @@ function dayBoundsIso(dateIso: string, zone: string): { since: string; until: st
   }
 }
 
+/** 从 start 日 00:00 到 end 日 24:00（工作区时区） */
+function rangeBoundsIso(startIso: string, endIso: string, zone: string): { since: string; until: string } {
+  const start = dayBoundsIso(startIso, zone).since
+  const until = dayBoundsIso(endIso, zone).until
+  return { since: start, until }
+}
+
 async function readInProgress(repo: string): Promise<InProgress> {
   try {
     const status = await runGit(repo, ['status', '--short'])
@@ -76,9 +83,11 @@ export async function collectRepo(
   repoPath: string,
   scanRoot: string,
   author: string | null | undefined,
-  dateIso: string,
-  zone: string
+  startDateIso: string,
+  zone: string,
+  endDateIso?: string
 ): Promise<RepoDayData> {
+  const endIso = endDateIso ?? startDateIso
   ensureUnderRoot(repoPath, scanRoot)
   let resolvedAuthor = author?.trim() ?? ''
   if (resolvedAuthor === '') {
@@ -89,7 +98,7 @@ export async function collectRepo(
     }
   }
 
-  const { since, until } = dayBoundsIso(dateIso, zone)
+  const { since, until } = rangeBoundsIso(startDateIso, endIso, zone)
   let commits = []
   let totalFiles = 0
   let totalInsertions = 0

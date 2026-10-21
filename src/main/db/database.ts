@@ -136,7 +136,12 @@ export function cleanupDailyReportRetention(database: Database.Database): number
   const ws = getWorkspace(database)
   const cutoff = retentionCutoffIso(ws.report_retention_days)
   const result = database
-    .prepare('DELETE FROM daily_report_records WHERE report_date < ?')
+    .prepare(
+      `DELETE FROM daily_report_records WHERE
+        CASE WHEN instr(report_date, '~') > 0
+          THEN substr(report_date, 1, instr(report_date, '~') - 1)
+          ELSE report_date END < ?`
+    )
     .run(cutoff)
   return result.changes
 }
