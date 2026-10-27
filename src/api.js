@@ -22,6 +22,7 @@ const safe = api ?? {
   fetchWorkspaceSettings: noop,
   saveWorkspaceSettings: noop,
   scanRepos: noop,
+  detectGitDirectory: noop,
   generateDailyReport: noop,
   polishDailyReport: noop,
   fetchDailyReportRecords: noop,
@@ -71,6 +72,10 @@ export function saveWorkspaceSettings(settings) {
 
 export function scanRepos(body) {
   return safe.scanRepos(toIpcPlain(body))
+}
+
+export function detectGitDirectory(body) {
+  return safe.detectGitDirectory(toIpcPlain(body))
 }
 
 export function generateDailyReport(body) {

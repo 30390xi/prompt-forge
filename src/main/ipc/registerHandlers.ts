@@ -2,6 +2,7 @@ import { dialog, ipcMain } from 'electron'
 import type Database from 'better-sqlite3'
 import { DEFAULT_STYLE } from '@shared/promptEngine'
 import { cleanupDailyReportRetention } from '../db/database'
+import { detectGitContext } from '../git/gitDetect'
 import { discover } from '../git/repoDiscovery'
 import { GitNotFoundError } from '../git/gitRunner'
 import {
@@ -99,6 +100,27 @@ export function registerIpcHandlers(database: Database.Database): void {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }
   })
+
+  ipcMain.handle(
+    'git:detect-directory',
+    async (_e, body: { directory?: string; scanDepth?: number }) => {
+      const dir = body.directory?.trim()
+      if (!dir) {
+        return { ok: true, context: null }
+      }
+      try {
+        const ws = getWorkspaceSettings(database)
+        const depth = body.scanDepth ?? ws.scanDepth
+        const context = await detectGitContext(dir, depth)
+        return { ok: true, context }
+      } catch (e) {
+        if (e instanceof GitNotFoundError) {
+          return { ok: false, error: e.message }
+        }
+        return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      }
+    }
+  )
 
   ipcMain.handle(
     'daily-report:generate',

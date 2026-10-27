@@ -9,11 +9,28 @@ export interface RepoInfo {
   name: string
 }
 
+/**
+ * 扫描父目录下的 Git 仓库。
+ *
+ * scanDepth 语义（与日报 UI 一致）：
+ * - 0：仅当前目录——父路径本身是仓库则只返回它，否则为空（不扫子目录）
+ * - 1：含直接子目录——父路径（若为仓库）+ 一层子文件夹中的仓库（不进入非仓库子目录再往下）
+ * - 2：含两层子目录——父路径（若为仓库）+ 最多向非仓库子目录再向下探两层
+ */
 export function discover(parentFolderRaw: string, scanDepth: number): RepoInfo[] {
   const parent = requireAbsoluteDirectory(parentFolderRaw)
   const depth = Math.min(Math.max(scanDepth, 0), 2)
   const found = new Set<string>()
-  collectRepos(parent, parent, depth, found)
+
+  if (isGitRepo(parent)) {
+    found.add(path.resolve(parent))
+  }
+
+  if (depth >= 1) {
+    const nestedDepth = depth - 1
+    collectNestedRepos(parent, nestedDepth, found)
+  }
+
   const list: RepoInfo[] = []
   for (const repo of found) {
     list.push({ path: repo, name: repoName(repo) })
@@ -22,29 +39,26 @@ export function discover(parentFolderRaw: string, scanDepth: number): RepoInfo[]
   return list
 }
 
-function collectRepos(root: string, current: string, depthRemaining: number, out: Set<string>): void {
-  if (isGitRepo(current) && path.resolve(current) !== path.resolve(root)) {
-    out.add(path.resolve(current))
-    return
-  }
-  if (depthRemaining < 0) return
+/** 在 parent 下查找嵌套仓库；nestedDepth 为可进入「非 Git 子目录」继续向下的层数 */
+function collectNestedRepos(parent: string, nestedDepth: number, out: Set<string>): void {
+  if (nestedDepth < 0) return
 
   let entries: string[]
   try {
-    entries = fs.readdirSync(current)
+    entries = fs.readdirSync(parent)
   } catch {
     return
   }
   entries.sort()
   for (const name of entries) {
     if (SKIP_DIRS.has(name)) continue
-    const child = path.join(current, name)
+    const child = path.join(parent, name)
     try {
       if (!fs.statSync(child).isDirectory()) continue
       if (isGitRepo(child)) {
         out.add(path.resolve(child))
-      } else if (depthRemaining > 0) {
-        collectRepos(root, child, depthRemaining - 1, out)
+      } else if (nestedDepth > 0) {
+        collectNestedRepos(child, nestedDepth - 1, out)
       }
     } catch {
       /* ignore */

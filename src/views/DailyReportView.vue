@@ -21,6 +21,21 @@
               {{ saving ? '保存中…' : '保存' }}
             </button>
           </div>
+          <div v-if="parentFolder" class="git-detect" aria-live="polite">
+            <p v-if="gitDetecting" class="git-detect-line muted">正在识别当前目录下的 Git…</p>
+            <template v-else-if="gitContext?.inRepo">
+              <p class="git-detect-line">
+                <span class="git-detect-label">已识别仓库</span>
+                <span class="mono">{{ gitContext.branch }}</span>
+                <span v-if="gitContext.dirtySummary" class="git-detect-dirty muted">· {{ gitContext.dirtySummary }}</span>
+              </p>
+              <p class="git-detect-line mono muted git-detect-root">{{ gitContext.repoRoot }}</p>
+            </template>
+            <template v-else>
+              <p class="git-detect-line muted">当前目录不在 Git 仓库内。</p>
+              <p v-if="nestedRepoHint" class="git-detect-line muted">{{ nestedRepoHint }}</p>
+            </template>
+          </div>
         </label>
         <label class="field">
           <span>开始日期</span>
@@ -45,8 +60,9 @@
         <label class="field">
           <span>扫描深度</span>
           <select v-model.number="scanDepth" class="select" :disabled="actionBusy">
-            <option :value="0">仅直接子目录</option>
-            <option :value="1">再向下一层嵌套</option>
+            <option :value="0">仅当前目录（本路径若为 Git 仓库）</option>
+            <option :value="1">含直接子目录中的仓库</option>
+            <option :value="2">含两层子目录中的仓库</option>
           </select>
         </label>
       </div>
@@ -135,7 +151,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   MAX_GENERATE_RANGE_DAYS,
   inclusiveDayCount,
@@ -145,6 +161,7 @@ import {
   fetchWorkspaceSettings,
   saveWorkspaceSettings,
   scanRepos as apiScan,
+  detectGitDirectory,
   generateDailyReport,
   polishDailyReport,
   fetchStyles,
@@ -183,6 +200,20 @@ const formError = ref('')
 const polishError = ref('')
 const rangeError = ref('')
 const copied = ref(false)
+
+const gitDetecting = ref(false)
+const gitContext = ref(null)
+let gitDetectTimer = null
+
+const nestedRepoHint = computed(() => {
+  const list = gitContext.value?.nestedRepos
+  if (!list?.length) {
+    return '可点击「发现仓库」扫描子目录，或直接一键生成（将自动发现）。'
+  }
+  const names = list.slice(0, 3).map((r) => r.name).join('、')
+  const more = list.length > 3 ? ` 等 ${list.length} 个` : ''
+  return `在其下发现 ${list.length} 个子仓库：${names}${more}。可点击「发现仓库」载入列表。`
+})
 
 const actionBusy = computed(
   () =>
@@ -231,6 +262,35 @@ function validateBeforeGenerate() {
   return true
 }
 
+async function refreshGitDetect() {
+  const dir = parentFolder.value.trim()
+  if (!dir) {
+    gitContext.value = null
+    return
+  }
+  gitDetecting.value = true
+  try {
+    const data = await detectGitDirectory({ directory: dir, scanDepth: scanDepth.value })
+    if (data.ok) {
+      gitContext.value = data.context
+    } else {
+      gitContext.value = null
+    }
+  } catch {
+    gitContext.value = null
+  } finally {
+    gitDetecting.value = false
+  }
+}
+
+function scheduleGitDetect() {
+  if (gitDetectTimer) clearTimeout(gitDetectTimer)
+  gitDetectTimer = setTimeout(() => {
+    gitDetectTimer = null
+    void refreshGitDetect()
+  }, 400)
+}
+
 async function loadSettings() {
   try {
     const data = await fetchWorkspaceSettings()
@@ -239,6 +299,7 @@ async function loadSettings() {
       scanDepth.value = data.settings.scanDepth ?? 1
       authorOverride.value = data.settings.authorOverride || ''
       retentionDays.value = data.settings.reportRetentionDays ?? 10
+      scheduleGitDetect()
     } else if (!data.ok) {
       formError.value = data.error || '加载工作区设置失败'
     }
@@ -272,6 +333,7 @@ async function browseFolder() {
     const data = await pickFolder()
     if (data.ok && data.path) {
       parentFolder.value = data.path
+      scheduleGitDetect()
     } else if (!data.ok && data.error) {
       formError.value = data.error
     }
@@ -295,7 +357,10 @@ async function scanRepos() {
       repos.value = data.repos || []
       selectedRepos.value = repos.value.map(r => r.path)
       if (!repos.value.length) {
-        formError.value = '未发现 Git 仓库，请检查父目录或扫描深度'
+        formError.value =
+          scanDepth.value === 0
+            ? '当前目录不是 Git 仓库；可改用更深的扫描范围或选择仓库根路径'
+            : '未发现 Git 仓库，请检查父目录或扫描深度'
       }
     } else {
       formError.value = data.error || '扫描失败'
@@ -466,6 +531,10 @@ function formatTime(value) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+watch([parentFolder, scanDepth], () => {
+  scheduleGitDetect()
+})
+
 onMounted(async () => {
   onRangeChange()
   await loadSettings()
@@ -522,6 +591,38 @@ onMounted(async () => {
 .path-row {
   display: flex;
   gap: 8px;
+}
+
+.git-detect {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--bg-subtle, #f8fafc);
+  border: 1px solid var(--border);
+}
+
+.git-detect-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.git-detect-line + .git-detect-line {
+  margin-top: 4px;
+}
+
+.git-detect-label {
+  font-weight: 600;
+  color: var(--text-primary, #1e293b);
+  margin-right: 8px;
+}
+
+.git-detect-root {
+  word-break: break-all;
+}
+
+.git-detect-dirty {
+  margin-left: 4px;
 }
 
 .repo-toolbar {

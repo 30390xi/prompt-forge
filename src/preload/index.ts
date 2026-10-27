@@ -22,6 +22,8 @@ const api = {
   saveWorkspaceSettings: (settings: Record<string, unknown>) =>
     ipcRenderer.invoke('settings:workspace:save', settings),
   scanRepos: (body: Record<string, unknown>) => ipcRenderer.invoke('repos:scan', body),
+  detectGitDirectory: (body: Record<string, unknown>) =>
+    ipcRenderer.invoke('git:detect-directory', body),
   generateDailyReport: (body: Record<string, unknown>) =>
     ipcRenderer.invoke('daily-report:generate', body),
   polishDailyReport: (draft: string, style: string) =>
